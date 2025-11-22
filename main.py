@@ -137,7 +137,7 @@ def load_config():
         "PLATFORMS": config_data["platforms"],
         "TRANSLATION": {
             "ENABLED": config_data.get("translation", {}).get("enabled", False),
-            "TARGET_LANGUAGE": config_data.get("translation", {}).get("target_language", "en"),
+            "TARGET_LANGUAGES": config_data.get("translation", {}).get("target_languages", ["en"]),
             "SHOW_ORIGINAL": config_data.get("translation", {}).get("show_original", True),
         },
     }
@@ -1582,12 +1582,14 @@ def format_title_for_platform(
         if title_data["count"] > 1:
             result += f" <code>({title_data['count']}次)</code>"
 
-        # Add English translation if enabled
+        # Add translations if enabled
         if CONFIG.get("TRANSLATION", {}).get("ENABLED", False):
-            target_lang = CONFIG["TRANSLATION"].get("TARGET_LANGUAGE", "en")
-            translated = translate_text(cleaned_title, target_lang)
-            if translated and translated != cleaned_title:
-                result += f"\n   ↳ <i>{html_escape(translated)}</i>"
+            target_langs = CONFIG["TRANSLATION"].get("TARGET_LANGUAGES", ["en"])
+            for target_lang in target_langs:
+                translated = translate_text(cleaned_title, target_lang)
+                if translated and translated != cleaned_title:
+                    lang_label = {"en": "EN", "vi": "VI", "ja": "JA", "ko": "KO"}.get(target_lang, target_lang.upper())
+                    result += f"\n   ↳ [{lang_label}] <i>{html_escape(translated)}</i>"
 
         return result
 
@@ -1639,13 +1641,15 @@ def format_title_for_platform(
         if title_data["count"] > 1:
             formatted_title += f" <font color='green'>({title_data['count']}次)</font>"
 
-        # Add English translation if enabled
+        # Add translations if enabled
         if CONFIG.get("TRANSLATION", {}).get("ENABLED", False):
-            target_lang = CONFIG["TRANSLATION"].get("TARGET_LANGUAGE", "en")
-            translated = translate_text(cleaned_title, target_lang)
-            if translated and translated != cleaned_title:
-                escaped_translated = html_escape(translated)
-                formatted_title += f'<br><span style="color: #666; font-size: 0.9em; margin-left: 20px;">↳ {escaped_translated}</span>'
+            target_langs = CONFIG["TRANSLATION"].get("TARGET_LANGUAGES", ["en"])
+            for target_lang in target_langs:
+                translated = translate_text(cleaned_title, target_lang)
+                if translated and translated != cleaned_title:
+                    escaped_translated = html_escape(translated)
+                    lang_label = {"en": "EN", "vi": "VI", "ja": "JA", "ko": "KO"}.get(target_lang, target_lang.upper())
+                    formatted_title += f'<br><span style="color: #666; font-size: 0.9em; margin-left: 20px;">↳ [{lang_label}] {escaped_translated}</span>'
 
         if title_data.get("is_new"):
             formatted_title = f"<div class='new-title'>🆕 {formatted_title}</div>"
