@@ -18,9 +18,13 @@ from typing import Dict, List, Tuple, Optional, Union
 import pytz
 import requests
 import yaml
+from deep_translator import GoogleTranslator
 
 
 VERSION = "3.1.1"
+
+# Translation cache to avoid repeated translations
+_translation_cache = {}
 
 
 # === SMTP邮件配置 ===
@@ -131,6 +135,11 @@ def load_config():
             "HOTNESS_WEIGHT": config_data["weight"]["hotness_weight"],
         },
         "PLATFORMS": config_data["platforms"],
+        "TRANSLATION": {
+            "ENABLED": config_data.get("translation", {}).get("enabled", False),
+            "TARGET_LANGUAGE": config_data.get("translation", {}).get("target_language", "en"),
+            "SHOW_ORIGINAL": config_data.get("translation", {}).get("show_original", True),
+        },
     }
 
     # 通知渠道配置（环境变量优先）
@@ -231,12 +240,12 @@ def get_beijing_time():
 
 def format_date_folder():
     """格式化日期文件夹"""
-    return get_beijing_time().strftime("%Y年%m月%d日")
+    return get_beijing_time().strftime("%Y-%m-%d")
 
 
 def format_time_filename():
     """格式化时间文件名"""
-    return get_beijing_time().strftime("%H时%M分")
+    return get_beijing_time().strftime("%H-%M")
 
 
 def clean_title(title: str) -> str:
@@ -260,6 +269,28 @@ def get_output_path(subfolder: str, filename: str) -> str:
     output_dir = Path("output") / date_folder / subfolder
     ensure_directory_exists(str(output_dir))
     return str(output_dir / filename)
+
+
+def translate_text(text: str, target_lang: str = "en") -> str:
+    """Translate text to target language with caching"""
+    global _translation_cache
+
+    if not text or not text.strip():
+        return text
+
+    # Check cache first
+    cache_key = f"{text}_{target_lang}"
+    if cache_key in _translation_cache:
+        return _translation_cache[cache_key]
+
+    try:
+        translator = GoogleTranslator(source='auto', target=target_lang)
+        translated = translator.translate(text)
+        _translation_cache[cache_key] = translated
+        return translated
+    except Exception as e:
+        print(f"Translation error: {e}")
+        return text
 
 
 def check_version_update(
@@ -1551,6 +1582,13 @@ def format_title_for_platform(
         if title_data["count"] > 1:
             result += f" <code>({title_data['count']}次)</code>"
 
+        # Add English translation if enabled
+        if CONFIG.get("TRANSLATION", {}).get("ENABLED", False):
+            target_lang = CONFIG["TRANSLATION"].get("TARGET_LANGUAGE", "en")
+            translated = translate_text(cleaned_title, target_lang)
+            if translated and translated != cleaned_title:
+                result += f"\n   ↳ <i>{html_escape(translated)}</i>"
+
         return result
 
     elif platform == "ntfy":
@@ -1600,6 +1638,14 @@ def format_title_for_platform(
             formatted_title += f" <font color='grey'>- {escaped_time}</font>"
         if title_data["count"] > 1:
             formatted_title += f" <font color='green'>({title_data['count']}次)</font>"
+
+        # Add English translation if enabled
+        if CONFIG.get("TRANSLATION", {}).get("ENABLED", False):
+            target_lang = CONFIG["TRANSLATION"].get("TARGET_LANGUAGE", "en")
+            translated = translate_text(cleaned_title, target_lang)
+            if translated and translated != cleaned_title:
+                escaped_translated = html_escape(translated)
+                formatted_title += f'<br><span style="color: #666; font-size: 0.9em; margin-left: 20px;">↳ {escaped_translated}</span>'
 
         if title_data.get("is_new"):
             formatted_title = f"<div class='new-title'>🆕 {formatted_title}</div>"
