@@ -5,7 +5,7 @@ app:
 # Translation settings
 translation:
   enabled: true # Enable/disable translation
-  target_language: "vi" # Target language code (vi=Vietnamese, en=English, ja, ko, etc.)
+  target_languages: ["en", "vi"] # List of languages (en=English, vi=Vietnamese)
   show_original: true # Show original Chinese text alongside translation
 
 crawler:
